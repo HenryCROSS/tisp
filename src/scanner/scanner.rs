@@ -1,16 +1,15 @@
-use std::env;
 use std::fs;
 
 use super::token::Token;
 use super::token::TokenType;
 
-fn read_file_scan(file_name: String) -> Result<Vec<Token>, Vec<String>> {
+pub fn read_file_scan(file_name: String) -> Result<Vec<Token>, Vec<String>> {
   fs::read_to_string(file_name)
     .map_err(|e| vec![e.to_string()])
     .and_then(read_str_scan)
 }
 
-fn read_str_scan(text: String) -> Result<Vec<Token>, Vec<String>> {
+pub fn read_str_scan(text: String) -> Result<Vec<Token>, Vec<String>> {
   let mut tokens = Vec::new();
   let mut errors = Vec::new();
   let mut chars = text.chars().peekable();
@@ -62,6 +61,24 @@ fn read_str_scan(text: String) -> Result<Vec<Token>, Vec<String>> {
         } else {
           TokenType::Less
         }
+      }
+      '"' => {
+        let mut string_literal = String::new();
+        while let Some(&next) = chars.peek() {
+          if next == '"' {
+            chars.next();
+            break;
+          } else if next == '\n' {
+            errors.push(format!(
+              "Unterminated string at line {} column {}",
+              line, column
+            ));
+            break;
+          } else {
+            string_literal.push(chars.next().unwrap());
+          }
+        }
+        TokenType::String(string_literal)
       }
       ' ' | '\r' | '\t' => continue,
       '\n' => {
@@ -120,7 +137,7 @@ fn read_str_scan(text: String) -> Result<Vec<Token>, Vec<String>> {
             "class" => TokenType::Class,
             "else" => TokenType::Else,
             "false" => TokenType::False,
-            "func" => TokenType::Func,
+            "defun" => TokenType::Func,
             "for" => TokenType::For,
             "if" => TokenType::If,
             "nil" => TokenType::Nil,
@@ -157,6 +174,12 @@ fn read_str_scan(text: String) -> Result<Vec<Token>, Vec<String>> {
       column,
     });
   }
+
+  tokens.push(Token {
+    token_type: TokenType::EOF,
+    line,
+    column: column + 1,
+  });
 
   if errors.is_empty() {
     Ok(tokens)
