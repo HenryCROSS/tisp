@@ -72,20 +72,5 @@ pub enum Opcode {
 
 pub fn opcode_to_bytes(op: Opcode) -> [u8; 4] {
   let value = op as u32;
-  
-  if cfg!(target_endian = "big") {
-      [
-          ((value >> 24) & 0xFF) as u8,
-          ((value >> 16) & 0xFF) as u8,
-          ((value >> 8) & 0xFF) as u8,
-          (value & 0xFF) as u8,
-      ]
-  } else {
-      [
-          ((value >> 24) & 0xFF) as u8,
-          ((value >> 16) & 0xFF) as u8,
-          ((value >> 8) & 0xFF) as u8,
-          (value & 0xFF) as u8,
-      ]
-  }
+  value.to_be_bytes()
 }
