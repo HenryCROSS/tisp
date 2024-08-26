@@ -73,8 +73,9 @@ x           ; Symbol (atom)
 ## Functions
 
 ```lisp
-(defun square (x)
-  (* x x))
+(def square 
+  (fn (x)
+    (* x x)))
 
 (square 5)  ; Calls the function 'square' with argument 5
 ```
@@ -89,7 +90,7 @@ x           ; Symbol (atom)
 
 ## Macros
 ```lisp
-(defmacro unless (condition &rest body)
+(macro unless (condition &rest body)
   `(if (not ,condition)
        (progn ,@body)))
 ```
