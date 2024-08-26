@@ -24,16 +24,18 @@ pub enum TokenType {
   LessEqual,    // <=
 
   // Literals.
-  Identifier(String),
+  Symbol(String),
   String(String),
-  Double(f32),
-  Int(i32),
+  Character(char),
+  Keyword(String),
+  Float32(f32),
+  Int32(i32),
+  Bool(bool),
 
   // Keywords.
   And,
   Class,
   Else,
-  False,
   Func,
   For,
   If,
@@ -43,13 +45,15 @@ pub enum TokenType {
   Return,
   Super,
   This,
-  True,
   Var,
   While,
+  Quote,
+  Macro,
+
 
   // End of file.
   EOF,
-}
+} 
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
