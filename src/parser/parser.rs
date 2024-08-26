@@ -33,6 +33,10 @@ impl Parser {
     self.tokens.get(self.current)
   }
 
+  fn peek_next(&self) -> Option<&Token> {
+    self.tokens.get(self.current + 1)
+  }
+
   fn advance(&mut self) -> Option<&Token> {
     if !self.is_at_end() {
       self.current += 1;
@@ -55,24 +59,25 @@ impl Parser {
     }
   }
 
-  fn match_tokens(&mut self, types: &[TokenType]) -> bool {
-    if let Some(token) = self.peek() {
-      if types.iter().any(|t| t == &token.token_type) {
-        self.advance();
-        return true;
+  fn is_current_and_next_match(&self, token_pair: &(TokenType, TokenType)) -> bool {
+    match (self.peek(), self.peek_next()) {
+      (Some(current_token), Some(next_token)) => {
+        &current_token.token_type == &token_pair.0 && &next_token.token_type == &token_pair.1
       }
+      _ => false,
     }
-    false
   }
 
   pub fn parse(&mut self) -> Result<ASTNode, Vec<ParseError>> {
     let mut nodes = Vec::new();
 
     while !self.is_at_end() {
-      if self.match_tokens(&[
+      if self.is_current_and_next_match(&(
         TokenType::LeftParen,
         TokenType::Keyword("macro".to_string()),
-      ]) {
+      )) {
+        self.advance(); // Consume '('
+        self.advance(); // Consume 'macro'
         match self.parse_symbol() {
           Ok(name) => match self.parse_macro_definition(name) {
             Ok(node) => nodes.push(node),
@@ -96,7 +101,8 @@ impl Parser {
   }
 
   fn parse_expression(&mut self) -> ParseResult<ASTNode> {
-    if self.match_tokens(&[TokenType::LeftParen]) {
+    if self.is_current_match(&TokenType::LeftParen) {
+      self.advance(); // Consume '('
       self.parse_list()
     } else {
       self.parse_atom()
@@ -107,11 +113,13 @@ impl Parser {
     let mut elements = Vec::new();
 
     while !self.is_current_match(&TokenType::RightParen) && !self.is_at_end() {
-      if self.match_tokens(&[TokenType::Symbol("def".to_string())]) {
+      if self.is_current_match(&TokenType::Var) {
+        self.advance(); // Consume 'def'
         let name = self.parse_symbol()?;
         let definition = self.parse_definition(name)?;
         elements.push(definition);
-      } else if self.match_tokens(&[TokenType::Keyword("quote".to_string())]) {
+      } else if self.is_current_match(&TokenType::Keyword("quote".to_string())) {
+        self.advance(); // Consume 'quote'
         let quoted_expr = self.parse_expression()?;
         elements.push(ASTNode::Quote(Box::new(quoted_expr)));
       } else {
@@ -128,11 +136,13 @@ impl Parser {
   }
 
   fn parse_definition(&mut self, name: String) -> ParseResult<ASTNode> {
-    if self.match_tokens(&[TokenType::LeftParen]) {
-      if self.match_tokens(&[TokenType::Symbol("fn".to_string())]) {
+    if self.is_current_match(&TokenType::LeftParen) {
+      self.advance(); // Consume '('
+      if self.is_current_match(&TokenType::Func) {
+        self.advance(); // Consume 'fn'
         self.parse_function_definition(name)
       } else {
-        Err(self.error("Expected 'fn' after 'def'"))
+        Err(self.error("Expected 'fn' after '('"))
       }
     } else {
       self.parse_atom() // 如果没有函数定义，则直接解析为原子
@@ -197,6 +207,7 @@ impl Parser {
       None => return Err(self.error("Unexpected end of input")),
     };
 
+    
     match token.token_type {
       TokenType::Int32(value) => Ok(ASTNode::Int32(value)),
       TokenType::Float32(value) => Ok(ASTNode::Float32(value)),
@@ -240,6 +251,7 @@ mod tests {
 
   fn parse_lisp_code(code: &str) -> Result<ASTNode, Vec<ParseError>> {
     let tokens = read_str_scan(code.to_string()).unwrap();
+    println!("Tokens: {:?}", tokens);
     let mut parser = Parser::new(tokens);
     parser.parse()
   }
@@ -247,9 +259,9 @@ mod tests {
   #[test]
   fn test_simple_function_definition() {
     let code = r#"
-            (def add 
-              (fn (x y)
-                (+ x y)))
+(def add 
+  (fn (x y)
+    (+ x y)))
         "#;
 
     let result = parse_lisp_code(code);
