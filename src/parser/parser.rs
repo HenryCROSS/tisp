@@ -72,10 +72,7 @@ impl Parser {
     let mut nodes = Vec::new();
 
     while !self.is_at_end() {
-      if self.is_current_and_next_match(&(
-        TokenType::LeftParen,
-        TokenType::Keyword("macro".to_string()),
-      )) {
+      if self.is_current_and_next_match(&(TokenType::LeftParen, TokenType::Macro)) {
         self.advance(); // Consume '('
         self.advance(); // Consume 'macro'
         match self.parse_symbol() {
@@ -123,7 +120,8 @@ impl Parser {
         let quoted_expr = self.parse_expression()?;
         elements.push(ASTNode::Quote(Box::new(quoted_expr)));
       } else {
-        elements.push(self.parse_expression()?);
+        let ast = self.parse_expression()?;
+        elements.push(ast);
       }
     }
 
@@ -132,24 +130,36 @@ impl Parser {
     }
 
     self.advance(); // Consume ')'
-    Ok(ASTNode::List(elements))
-  }
-
-  fn parse_definition(&mut self, name: String) -> ParseResult<ASTNode> {
-    if self.is_current_match(&TokenType::LeftParen) {
-      self.advance(); // Consume '('
-      if self.is_current_match(&TokenType::Func) {
-        self.advance(); // Consume 'fn'
-        self.parse_function_definition(name)
-      } else {
-        Err(self.error("Expected 'fn' after '('"))
-      }
+    if elements.len() == 1 && matches!(elements[0], ASTNode::Variable(..)) {
+      Ok(elements.pop().unwrap())
     } else {
-      self.parse_atom() // 如果没有函数定义，则直接解析为原子
+      Ok(ASTNode::List(elements))
     }
   }
 
-  fn parse_function_definition(&mut self, name: String) -> ParseResult<ASTNode> {
+  fn parse_definition(&mut self, name: String) -> ParseResult<ASTNode> {
+    match self.peek() {
+      Some(Token {
+        token_type: TokenType::LeftParen,
+        ..
+      }) => {
+        self.advance(); // Consume '('
+        if self.is_current_match(&TokenType::Func) {
+          self.advance(); // Consume 'fn'
+          self
+            .parse_function_definition()
+            .map(|ast| ASTNode::Variable(name, Box::new(ast)))
+        } else {
+          Err(self.error("Expected 'fn' after '('"))
+        }
+      }
+      _ => self
+        .parse_atom()
+        .map(|ast| ASTNode::Variable(name, Box::new(ast))),
+    }
+  }
+
+  fn parse_function_definition(&mut self) -> ParseResult<ASTNode> {
     let params = self.parse_arg_list()?; // 解析函数的参数列表
     let mut body = Vec::new();
 
@@ -162,7 +172,7 @@ impl Parser {
     }
 
     self.advance(); // Consume ')'
-    Ok(ASTNode::FuncDef(name, params, body))
+    Ok(ASTNode::FuncDef(params, body))
   }
 
   fn parse_macro_definition(&mut self, name: String) -> ParseResult<ASTNode> {
@@ -179,6 +189,18 @@ impl Parser {
 
     self.advance(); // Consume ')'
     Ok(ASTNode::MacroDef(name, params, body))
+  }
+
+  fn parse_macro_template(&mut self, name: String) -> ParseResult<ASTNode> {
+
+  }
+
+  fn parse_macro_comma(&mut self, name: String) -> ParseResult<ASTNode> {
+    
+  }
+
+  fn parse_macro_expand(&mut self, name: String) -> ParseResult<ASTNode> {
+    
   }
 
   fn parse_arg_list(&mut self) -> ParseResult<Vec<ASTNode>> {
@@ -207,7 +229,6 @@ impl Parser {
       None => return Err(self.error("Unexpected end of input")),
     };
 
-    
     match token.token_type {
       TokenType::Int32(value) => Ok(ASTNode::Int32(value)),
       TokenType::Float32(value) => Ok(ASTNode::Float32(value)),
@@ -245,13 +266,13 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-  use crate::scanner::scanner::read_str_scan;
+  use std::vec;
 
   use super::*;
+  use crate::scanner::scanner::read_str_scan;
 
   fn parse_lisp_code(code: &str) -> Result<ASTNode, Vec<ParseError>> {
     let tokens = read_str_scan(code.to_string()).unwrap();
-    println!("Tokens: {:?}", tokens);
     let mut parser = Parser::new(tokens);
     parser.parse()
   }
@@ -259,27 +280,28 @@ mod tests {
   #[test]
   fn test_simple_function_definition() {
     let code = r#"
-(def add 
-  (fn (x y)
-    (+ x y)))
+            (def add 
+              (fn (x y)
+                (+ x y)))
         "#;
 
     let result = parse_lisp_code(code);
 
-    println!("????{:?}", result);
     assert!(result.is_ok());
 
-    let expected_ast = ASTNode::Program(vec![ASTNode::FuncDef(
+    let expected_ast = ASTNode::Program(vec![ASTNode::Variable(
       "add".to_string(),
-      vec![
-        ASTNode::Symbol("x".to_string()),
-        ASTNode::Symbol("y".to_string()),
-      ],
-      vec![ASTNode::List(vec![
-        ASTNode::Symbol("+".to_string()),
-        ASTNode::Symbol("x".to_string()),
-        ASTNode::Symbol("y".to_string()),
-      ])],
+      Box::new(ASTNode::FuncDef(
+        vec![
+          ASTNode::Symbol("x".to_string()),
+          ASTNode::Symbol("y".to_string()),
+        ],
+        vec![ASTNode::List(vec![
+          ASTNode::Symbol("+".to_string()),
+          ASTNode::Symbol("x".to_string()),
+          ASTNode::Symbol("y".to_string()),
+        ])],
+      )),
     )]);
 
     assert_eq!(result.unwrap(), expected_ast);
@@ -289,21 +311,25 @@ mod tests {
   fn test_macro_definition() {
     let code = r#"
             (macro log (msg)
-                `(println ,msg)
-            )
+                `(println ,msg))
         "#;
 
     let result = parse_lisp_code(code);
+    println!("{:?}", result);
 
     assert!(result.is_ok());
 
     let expected_ast = ASTNode::Program(vec![ASTNode::MacroDef(
       "log".to_string(),
       vec![ASTNode::Symbol("msg".to_string())],
-      vec![ASTNode::Quote(Box::new(ASTNode::List(vec![
-        ASTNode::Symbol("println".to_string()),
-        ASTNode::Symbol("msg".to_string()),
-      ])))],
+      vec![
+        ASTNode::Symbol("`".to_string()),
+        ASTNode::List(vec![
+          ASTNode::Symbol("println".to_string()),
+          ASTNode::Symbol(",".to_string()),
+          ASTNode::Symbol("msg".to_string()),
+        ]),
+      ],
     )]);
 
     assert_eq!(result.unwrap(), expected_ast);
@@ -329,33 +355,53 @@ mod tests {
   }
 
   #[test]
-  fn test_nested_expressions() {
+  fn test_macro_call() {
     let code = r#"
-            (def calculate (fn (a b c)
-                (+ a (* b c))
-            ))
+            (log "Hello, World!")
         "#;
 
     let result = parse_lisp_code(code);
 
     assert!(result.is_ok());
 
-    let expected_ast = ASTNode::Program(vec![ASTNode::FuncDef(
+    let expected_ast = ASTNode::Program(vec![ASTNode::List(vec![
+      ASTNode::Symbol("log".to_string()),
+      ASTNode::StringLiteral("Hello, World!".to_string()),
+    ])]);
+
+    assert_eq!(result.unwrap(), expected_ast);
+  }
+
+  #[test]
+  fn test_nested_expressions() {
+    let code = r#"
+            (def calculate (fn (a b c)
+                (+ a (* b c))))
+        "#;
+
+    let result = parse_lisp_code(code);
+
+    println!("{:?}", result);
+    assert!(result.is_ok());
+
+    let expected_ast = ASTNode::Program(vec![ASTNode::Variable(
       "calculate".to_string(),
-      vec![
-        ASTNode::Symbol("a".to_string()),
-        ASTNode::Symbol("b".to_string()),
-        ASTNode::Symbol("c".to_string()),
-      ],
-      vec![ASTNode::List(vec![
-        ASTNode::Symbol("+".to_string()),
-        ASTNode::Symbol("a".to_string()),
-        ASTNode::List(vec![
-          ASTNode::Symbol("*".to_string()),
+      Box::new(ASTNode::FuncDef(
+        vec![
+          ASTNode::Symbol("a".to_string()),
           ASTNode::Symbol("b".to_string()),
           ASTNode::Symbol("c".to_string()),
-        ]),
-      ])],
+        ],
+        vec![ASTNode::List(vec![
+          ASTNode::Symbol("+".to_string()),
+          ASTNode::Symbol("a".to_string()),
+          ASTNode::List(vec![
+            ASTNode::Symbol("*".to_string()),
+            ASTNode::Symbol("b".to_string()),
+            ASTNode::Symbol("c".to_string()),
+          ]),
+        ])],
+      )),
     )]);
 
     assert_eq!(result.unwrap(), expected_ast);

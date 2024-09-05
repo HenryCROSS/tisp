@@ -21,8 +21,8 @@ pub fn read_str_scan(text: String) -> Result<Vec<Token>, Vec<String>> {
       ')' => TokenType::RightParen,
       '{' => TokenType::LeftBrace,
       '}' => TokenType::RightBrace,
-      '/' => TokenType::Slash,
-      '*' => TokenType::Star,
+      '/' => TokenType::Symbol("/".to_string()),
+      '*' => TokenType::Symbol("*".to_string()),
       '!' => {
         if chars.peek() == Some(&'=') {
           chars.next();
@@ -34,25 +34,25 @@ pub fn read_str_scan(text: String) -> Result<Vec<Token>, Vec<String>> {
       '=' => {
         if chars.peek() == Some(&'=') {
           chars.next();
-          TokenType::EqualEqual
+          TokenType::Symbol("==".to_string())
         } else {
-          TokenType::Equal
+          TokenType::Symbol("=".to_string())
         }
       }
       '>' => {
         if chars.peek() == Some(&'=') {
           chars.next();
-          TokenType::GreaterEqual
+          TokenType::Symbol(">=".to_string())
         } else {
-          TokenType::Greater
+          TokenType::Symbol(">".to_string())
         }
       }
       '<' => {
         if chars.peek() == Some(&'=') {
           chars.next();
-          TokenType::LessEqual
+          TokenType::Symbol("<=".to_string())
         } else {
-          TokenType::Less
+          TokenType::Symbol("<".to_string())
         }
       }
       '\'' => TokenType::Quote,

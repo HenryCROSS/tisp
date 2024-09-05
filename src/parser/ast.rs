@@ -3,16 +3,18 @@ pub enum ASTNode {
   Program(Vec<ASTNode>),
   Int32(i32),
   Float32(f32),
-  Bool(bool),
-  Nil,
-  Symbol(String),
-  Keyword(String),
+  Bool(bool),        // #t #f
+  Nil,               // nil
+  Symbol(String),    // symbol
+  Keyword(String),   // :keyword
   StringLiteral(String),
   Character(char),
   List(Vec<ASTNode>),
   Quote(Box<ASTNode>),
-  FuncCall(String, Vec<ASTNode>),
-  FuncDef(String, Vec<ASTNode>, Vec<ASTNode>),
+  Variable(String, Box<ASTNode>),
+  FuncDef(Vec<ASTNode>, Vec<ASTNode>),
   MacroDef(String, Vec<ASTNode>, Vec<ASTNode>),
-  MacroCall(String, Vec<ASTNode>),
+  MacroTemplate(Box<ASTNode>),
+  MacroComma(Box<ASTNode>),
+  MacroListExpand(Box<ASTNode>),
 }
