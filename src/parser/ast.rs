@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum ASTNode {
   Program(Vec<ASTNode>),
@@ -13,8 +15,8 @@ pub enum ASTNode {
   Quote(Box<ASTNode>),
   Variable(String, Box<ASTNode>),
   FuncDef(Vec<ASTNode>, Vec<ASTNode>),
-  MacroDef(String, Vec<ASTNode>, Vec<ASTNode>),
-  MacroTemplate(Box<ASTNode>),
+  MacroDef(String),
+  MacroTemplate(Uuid),
   MacroComma(Box<ASTNode>),
   MacroListExpand(Box<ASTNode>),
 }

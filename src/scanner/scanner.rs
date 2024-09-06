@@ -145,7 +145,7 @@ pub fn read_str_scan(text: String) -> Result<Vec<Token>, Vec<String>> {
           continue;
         }
       }
-      '`' | ',' => TokenType::Symbol(c.to_string()),
+      '`' | ',' | '@' => TokenType::ReaderMacro(c.to_string()),
       ' ' | '\r' | '\t' => continue,
       '\n' => {
         line += 1;

@@ -28,6 +28,7 @@ pub enum TokenType {
   String(String),
   Character(char),
   Keyword(String),
+  ReaderMacro(String),
   Float32(f32),
   Int32(i32),
   Bool(bool),
